@@ -1,0 +1,1 @@
+# Run `ct -pretty -platform vagrant-virtualbox < node.clc > node.ign` to regenerate the ignition config
