@@ -1,0 +1,5 @@
+.vagrant
+*.img
+*.vmdk
+*.ign.merged
+.DS_Store

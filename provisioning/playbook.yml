@@ -1,0 +1,9 @@
+####################################
+# ANSIBLE PREREQUISITES FOR COREOS #
+####################################
+
+- name: coreos-pypy
+  hosts: all
+  gather_facts: False
+  roles:
+    - pypy

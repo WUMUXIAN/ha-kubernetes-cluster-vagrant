@@ -78,10 +78,12 @@ Vagrant.configure("2") do |config|
       master_hostvars = {
         master_name => {
           "ansible_port" => 22,
+          "ansible_host" => master_ip,
+          "ansible_python_interpreter" => "/home/core/bin/python",
           "ansible_ssh_host" => master_ip,
           "private_ipv4" => master_ip,
           "public_ipv4" => master_ip,
-          "role" => "master"
+          "role" => "master",
         }
       }
       hostvars.merge!(master_hostvars)
@@ -92,6 +94,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision :ansible do |ansible|
     ansible.groups = {
       "role=master": masters,
+      "all": masters,
     }
     ansible.host_vars = hostvars
     ansible.playbook = "provisioning/playbook.yml"
