@@ -3,3 +3,4 @@
 *.vmdk
 *.ign.merged
 .DS_Store
+*.retry

@@ -17,16 +17,17 @@ if not plugins_to_install.empty?
 end
 
 $master_vm_memory = 2048
-$master_ip_start = "172.17.4.10"
+$master_ip_start = "172.17.5.10"
 
 BOX_VERSION = ENV["BOX_VERSION"] || "1465.3.0"
-MASTER_COUNT = ENV["MASTER_COUNT"] || 1
+MASTER_COUNT = ENV["MASTER_COUNT"] || 3
+IGNITION_PATH = File.expand_path("./provisioning/node.ign")
 
 Vagrant.configure("2") do |config|
   # always use Vagrant's insecure key
   config.ssh.insert_key = false
 
-  config.vm.box = "container-linux-v${BOX_VERSION}"
+  config.vm.box = "container-linux-v#{BOX_VERSION}"
   config.vm.box_url = "https://beta.release.core-os.net/amd64-usr/#{BOX_VERSION}/coreos_production_vagrant_virtualbox.box"
 
   config.vm.provider :virtualbox do |v|
@@ -51,17 +52,15 @@ Vagrant.configure("2") do |config|
   # Create the master nodes.
   (1..MASTER_COUNT).each do |m|
     # Set the host name and ip
-    master_name = "master-0#{m}"
+    master_name = "master0#{m}"
     master_ip = $master_ip_start + "#{m}"
+    last = (m >= MASTER_COUNT)
 
-    config.vm.define master_name do |master|
+    config.vm.define master_name, primary: last do |master|
       master.vm.hostname = master_name
       master.vm.provider :virtualbox do |vb|
         vb.memory = $master_vm_memory
         master.ignition.enabled = true
-        vb.customize ["modifyvm", :id, "--natdnspassdomain1", "on"]
-        vb.customize ["setextradata", :id, "VBoxInternal/Devices/virtio-net/0/LUN#0/Config/HostResolverMappings/#{master_name}/HostIP", "#{master_ip}"]
-        vb.customize ["setextradata", :id, "VBoxInternal/Devices/virtio-net/0/LUN#0/Config/HostResolverMappings/#{master_name}/HostName", "#{master_name}.tdskubes.com"]
       end
 
       # Set the private ip.
@@ -73,31 +72,33 @@ Vagrant.configure("2") do |config|
         master.ignition.hostname = "#{master_name}.tdskubes.com"
         master.ignition.drive_root = "provisioning"
         master.ignition.drive_name = "config-master-#{m}"
+        master.ignition.path = IGNITION_PATH
       end
       masters << master_name
       master_hostvars = {
         master_name => {
-          "ansible_port" => 22,
-          "ansible_host" => master_ip,
           "ansible_python_interpreter" => "/home/core/bin/python",
-          "ansible_ssh_host" => master_ip,
           "private_ipv4" => master_ip,
           "public_ipv4" => master_ip,
           "role" => "master",
         }
       }
       hostvars.merge!(master_hostvars)
-    end
-  end
 
-  # Provision
-  config.vm.provision :ansible do |ansible|
-    ansible.groups = {
-      "role=master": masters,
-      "all": masters,
-    }
-    ansible.host_vars = hostvars
-    ansible.playbook = "provisioning/playbook.yml"
+      # Provision only when all machines are up and running.
+      if last
+        config.vm.provision :ansible do |ansible|
+          ansible.groups = {
+            "role=master": masters,
+            "all": masters,
+          }
+          ansible.host_vars = hostvars
+          # this will force the provision to happen on all machines to achieve parallel provisioning.
+          ansible.limit = "all"
+          ansible.playbook = "provisioning/playbook.yml"
+        end
+      end
+    end
   end
 end
 
