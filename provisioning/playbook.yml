@@ -9,11 +9,11 @@
     - pypy
 
 
-########################
-# Install etcd cluster #
-########################
+#####################################
+# Install master components cluster #
+#####################################
 
-- name: etcd
+- name: master
   hosts: role=master
   become: true
   gather_facts: True

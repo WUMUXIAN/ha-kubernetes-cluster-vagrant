@@ -7,6 +7,36 @@
     path: "{{ dropin_directory }}"
     state: directory
 
+- name: Make sure the ssl directory is present
+  file:
+    path: "{{ ssl_directory }}"
+    state: directory
+
+- name: Copy over the ca.crt and ca.key
+  copy:
+    src: "{{ item }}"
+    dest: "{{ ssl_directory }}/{{ item }}"
+  with_items:
+    - ca.crt
+    - ca.key
+
+- name: Generate the server.key
+  command: openssl genrsa -out server.key 2048
+  args:
+    chdir: "{{ ssl_directory }}"
+    creates: server.key
+
+- name: copy the csr configuration file
+  template:
+    src: server-csr.conf.j2
+    dest: "{{ ssl_directory }}/server-csr.conf"
+
+- name: Generate the server.csr
+  command: openssl req -new -key server.key -out server.csr -subj '/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd' -config server-csr.conf
+  args:
+    chdir: "{{ ssl_directory }}"
+    creates: server.csr
+
 - name: Create the etcd configuration there
   template:
     src: "{{ dropin_file }}.j2"
