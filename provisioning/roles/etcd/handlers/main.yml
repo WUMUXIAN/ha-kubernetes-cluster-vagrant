@@ -1,0 +1,7 @@
+---
+
+- name: Restart etcd
+  service:
+    name: etcd-member
+    state: restarted
+    daemon_reload: yes

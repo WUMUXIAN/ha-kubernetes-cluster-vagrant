@@ -1,0 +1,4 @@
+---
+
+dropin_directory: "/etc/systemd/system/etcd-member.service.d"
+dropin_file: "40-cluster-ips.conf"

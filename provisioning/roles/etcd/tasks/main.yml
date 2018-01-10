@@ -1,0 +1,21 @@
+########################
+# Install etcd cluster #
+########################
+
+- name: Make sure the configuration directory is present
+  file:
+    path: "{{ dropin_directory }}"
+    state: directory
+
+- name: Create the etcd configuration there
+  template:
+    src: "{{ dropin_file }}.j2"
+    dest: "{{ dropin_directory }}/{{ dropin_file }}"
+  notify: Restart etcd
+
+- name: Start and enable etcd service
+  systemd:
+    name: etcd-member
+    state: started
+    enabled: yes
+    daemon_reload: yes

@@ -7,3 +7,15 @@
   gather_facts: False
   roles:
     - pypy
+
+
+########################
+# Install etcd cluster #
+########################
+
+- name: etcd
+  hosts: role=master
+  become: true
+  gather_facts: True
+  roles:
+    - etcd
