@@ -2,16 +2,18 @@
 Environment=ETCD_NAME={{ inventory_hostname }}
 Environment=ETCD_INITIAL_ADVERTISE_PEER_URLS="https://{{ hostvars[inventory_hostname]['private_ipv4'] }}:2380"
 Environment=ETCD_LISTEN_PEER_URLS="https://{{ hostvars[inventory_hostname]['private_ipv4'] }}:2380"
-Environment=ETCD_LISTEN_CLIENT_URLS="https://{{ hostvars[inventory_hostname]['private_ipv4'] }}:2379,https://127.0.0.1:2379"
+Environment=ETCD_LISTEN_CLIENT_URLS="https://{{ hostvars[inventory_hostname]['private_ipv4'] }}:2379,https://127.0.0.1:2379,https://127.0.0.1:4001"
 Environment=ETCD_ADVERTISE_CLIENT_URLS="https://{{ hostvars[inventory_hostname]['private_ipv4'] }}:2379"
-Environment=ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster
+Environment=ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster-1
 Environment=ETCD_INITIAL_CLUSTER="{% for host in groups['role=master'] %}{{ host }}=https://{{ hostvars[host]['private_ipv4'] }}:2380{% if not loop.last %},{% endif %}{% endfor %}"
 Environment=ETCD_INITIAL_CLUSTER_STATE=new
 Environment=ETCD_STRICT_RECONFIG_CHECK=true
 Environment=ETCD_SSL_DIR=/etc/ssl/etcd
+Environment=ETCD_CLIENT_CERT_AUTH=true
+Environment=ETCD_TRUSTED_CA_FILE=/etc/ssl/certs/ca.crt
 Environment=ETCD_CERT_FILE=/etc/ssl/certs/server.crt
 Environment=ETCD_KEY_FILE=/etc/ssl/certs/server.key
 Environment=ETCD_PEER_CLIENT_CERT_AUTH=true
 Environment=ETCD_PEER_TRUSTED_CA_FILE=/etc/ssl/certs/ca.crt
-Environment=ETCD_PEER_CERT_FILE=/etc/ssl/certs/peer.crt
-Environment=ETCD_PEER_KEY_FILE=/etc/ssl/certs/peer.pem
+Environment=ETCD_PEER_CERT_FILE=/etc/ssl/certs/{{ inventory_hostname }}.crt
+Environment=ETCD_PEER_KEY_FILE=/etc/ssl/certs/{{ inventory_hostname }}.key

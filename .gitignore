@@ -4,3 +4,5 @@
 *.ign.merged
 .DS_Store
 *.retry
+*.crt
+*.key

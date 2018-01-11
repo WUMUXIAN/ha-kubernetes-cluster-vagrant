@@ -12,30 +12,26 @@
     path: "{{ ssl_directory }}"
     state: directory
 
-- name: Copy over the ca.crt and ca.key
+- name: Copy over the certs and keys
   copy:
     src: "{{ item }}"
     dest: "{{ ssl_directory }}/{{ item }}"
   with_items:
     - ca.crt
-    - ca.key
+    - server.crt
+    - server.key
+    - etcd-client.crt
+    - etcd-client.key
+  notify: Restart etcd
 
-- name: Generate the server.key
-  command: openssl genrsa -out server.key 2048
-  args:
-    chdir: "{{ ssl_directory }}"
-    creates: server.key
-
-- name: copy the csr configuration file
-  template:
-    src: server-csr.conf.j2
-    dest: "{{ ssl_directory }}/server-csr.conf"
-
-- name: Generate the server.csr
-  command: openssl req -new -key server.key -out server.csr -subj '/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd' -config server-csr.conf
-  args:
-    chdir: "{{ ssl_directory }}"
-    creates: server.csr
+- name: Copy over the peers certs and keys
+  copy:
+    src: "{{ item }}"
+    dest: "{{ ssl_directory }}/{{ item }}"
+  with_items:
+    - "{{ inventory_hostname }}.crt"
+    - "{{ inventory_hostname }}.key"
+  notify: Restart etcd
 
 - name: Create the etcd configuration there
   template:
