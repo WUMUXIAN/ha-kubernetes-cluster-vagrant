@@ -6,3 +6,4 @@
 *.retry
 *.crt
 *.key
+kubeconfig.j2
