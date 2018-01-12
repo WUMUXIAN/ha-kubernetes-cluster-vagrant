@@ -1,0 +1,27 @@
+###################
+# Install kubelet #
+###################
+
+- name: Make sure the kubernetes directory is present
+  file:
+    path: "/etc/kubernetes"
+    state: directory
+
+- name: Copy over the kubeconfig file
+  template:
+    src: "kubeconfig.j2"
+    dest: /etc/kubernetes/kubeconfig
+  notify: Restart kubelet
+
+- name: Copy over the service definition file
+  template:
+    src: "kubelet.service.j2"
+    dest: /etc/systemd/system/kubelet.service
+  notify: Restart kubelet
+
+- name: Start and enable kubelet service
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+    daemon_reload: yes
