@@ -58,6 +58,22 @@
     - bootstrap-controller-manager.yaml
     - bootstrap-scheduler.yaml
 
+- name: Copy manifests
+  run_once: true
+  template:
+    src: "./manifests/{{ item }}.j2"
+    dest: "{{ bootkube_directory }}/assets/manifests/{{ item }}"
+  with_items:
+    - kube-apiserver-secret.yaml
+    - kube-apiserver.yaml
+    - kube-controller-manager-disruption.yaml
+    - kube-controller-manager-secret.yaml
+    - kube-controller-manager.yaml
+    - kube-flannel.yaml
+    - kube-proxy.yaml
+    - kube-scheduler-disruption.yaml
+    - kube-scheduler.yaml
+
 - name: Copy over the bootkube.sh
   run_once: true
   template:

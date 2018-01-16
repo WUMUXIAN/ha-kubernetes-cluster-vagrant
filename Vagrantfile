@@ -108,7 +108,7 @@ Vagrant.configure("2") do |config|
     FileUtils::mkdir_p 'provisioning/roles/etcd/files'
     FileUtils::mkdir_p 'provisioning/roles/kubelet/files'
     FileUtils::mkdir_p 'provisioning/roles/bootkube/files/tls'
-    FileUtils::mkdir_p 'provisioning/roles/bootkube/files/manifests'
+    FileUtils::mkdir_p 'provisioning/roles/bootkube/templates/manifests'
     # BEGIN ETCD CA
     etcd_key = OpenSSL::PKey::RSA.new(2048)
     etcd_public_key = etcd_key.public_key
@@ -203,7 +203,7 @@ Vagrant.configure("2") do |config|
     kube_key = OpenSSL::PKey::RSA.new(2048)
     kube_public_key = kube_key.public_key
     kube_cert = signTLS(is_ca:          true,
-                        subject:        "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=kube-ca",
+                        subject:        "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
                         public_key:     kube_public_key,
                         ca_private_key: kube_key,
                         key_usage:      "digitalSignature,keyEncipherment,keyCertSign")
@@ -293,7 +293,7 @@ Vagrant.configure("2") do |config|
     data = data.gsub("{{ETCD_CLIENT_KEY}}", Base64.strict_encode64(etcd_client_key.to_pem))
     data = data.gsub("{{OIDC_CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
 
-    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/files/manifests/kube-apiserver-secret.yaml", "wb")
+    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-apiserver-secret.yaml.j2", "wb")
     kubeconfig_file_etc.syswrite(data)
     kubeconfig_file_etc.close
 
@@ -302,7 +302,7 @@ Vagrant.configure("2") do |config|
     data = data.gsub("{{SERVICE_ACCOUNT_KEY}}", Base64.strict_encode64(service_account_key.to_pem))
 
 
-    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/files/manifests/kube-controller-manager-secret.yaml", "wb")
+    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-controller-manager-secret.yaml.j2", "wb")
     kubeconfig_file_etc.syswrite(data)
     kubeconfig_file_etc.close
     # END BOOTKUBE MANIFESTS
@@ -361,4 +361,3 @@ Vagrant.configure("2") do |config|
     end
   end
 end
-
