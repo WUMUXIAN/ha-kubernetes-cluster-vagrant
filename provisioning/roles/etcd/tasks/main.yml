@@ -24,6 +24,7 @@
     - etcd-client.key
   notify: Restart etcd
 
+
 - name: Copy over the peers certs and keys
   copy:
     src: "{{ item }}"
@@ -45,3 +46,5 @@
     state: started
     enabled: yes
     daemon_reload: yes
+
+- meta: flush_handlers

@@ -107,6 +107,8 @@ Vagrant.configure("2") do |config|
   if ARGV[0] == 'up'
     FileUtils::mkdir_p 'provisioning/roles/etcd/files'
     FileUtils::mkdir_p 'provisioning/roles/kubelet/files'
+    FileUtils::mkdir_p 'provisioning/roles/bootkube/files/tls'
+    FileUtils::mkdir_p 'provisioning/roles/bootkube/files/manifests'
     # BEGIN ETCD CA
     etcd_key = OpenSSL::PKey::RSA.new(2048)
     etcd_public_key = etcd_key.public_key
@@ -219,8 +221,8 @@ Vagrant.configure("2") do |config|
     client_public_key = client_key.public_key
 
     client_cert = signTLS(is_ca:              false,
-                          subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=kubelet",
-                          issuer_subject:     "/C=/ST=/L=/postalCode=/O=bootkube/OU=/CN=kube-ca",
+                          subject:            "/C=SG/ST=Singapore/L=Singapore/O=system:masters/OU=IT/CN=kubelet",
+                          issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
                           issuer_cert:        kube_cert,
                           public_key:         client_public_key,
                           ca_private_key:     kube_key,
@@ -245,6 +247,66 @@ Vagrant.configure("2") do |config|
     kubeconfig_file.syswrite(data)
     kubeconfig_file.close
     # END KUBECONFIG
+
+    # START APISERVER
+    apiserver_key = OpenSSL::PKey::RSA.new(2048)
+    apiserver_public_key = apiserver_key.public_key
+
+    apiserver_cert = signTLS(is_ca:              false,
+                             subject:            "/C=SG/ST=Singapore/L=Singapore/O=kube-master/OU=IT/CN=kube-apiserver",
+                             issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
+                             issuer_cert:        kube_cert,
+                             public_key:         apiserver_public_key,
+                             ca_private_key:     kube_key,
+                             key_usage:          "digitalSignature,keyEncipherment",
+                             extended_key_usage: "serverAuth,clientAuth",
+                             san:                "DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local,#{IPs.join(',')},IP:10.3.0.1")
+
+    apiserver_file_tls = File.new("provisioning/roles/bootkube/files/tls/apiserver.crt", "wb")
+    apiserver_file_tls.syswrite(apiserver_cert.to_pem)
+    apiserver_file_tls.close
+    apiserver_key_file= File.new("provisioning/roles/bootkube/files/tls/apiserver.key", "wb")
+    apiserver_key_file.syswrite(apiserver_key.to_pem)
+    apiserver_key_file.close
+    # END APISERVER
+
+    # START SERVICE ACCOUNT
+    service_account_key = OpenSSL::PKey::RSA.new(2048)
+    service_account_pubkey = service_account_key.public_key
+
+    service_account_key_file= File.new("provisioning/roles/bootkube/files/tls/service-account.key", "wb")
+    service_account_key_file.syswrite(service_account_key.to_pem)
+    service_account_key_file.close
+    service_account_pubkey_file= File.new("provisioning/roles/bootkube/files/tls/service-account.pub", "wb")
+    service_account_pubkey_file.syswrite(service_account_pubkey.to_pem)
+    service_account_pubkey_file.close
+    # END SERVICE ACCOUNT
+
+    # START BOOTKUBE MANIFESTS
+    data = File.read("provisioning/roles/bootkube/files/kube-apiserver-secret.tmpl")
+    data = data.gsub("{{CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
+    data = data.gsub("{{APISERVER_CRT}}", Base64.strict_encode64(apiserver_cert.to_pem))
+    data = data.gsub("{{APISERVER_KEY}}", Base64.strict_encode64(apiserver_key.to_pem))
+    data = data.gsub("{{SERVICE_ACCOUNT_PUB}}", Base64.strict_encode64(service_account_pubkey.to_pem))
+    data = data.gsub("{{ETCD_CA_CRT}}", Base64.strict_encode64(etcd_cert.to_pem))
+    data = data.gsub("{{ETCD_CLIENT_CRT}}", Base64.strict_encode64(etcd_client_cert.to_pem))
+    data = data.gsub("{{ETCD_CLIENT_KEY}}", Base64.strict_encode64(etcd_client_key.to_pem))
+    data = data.gsub("{{OIDC_CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
+
+    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/files/manifests/kube-apiserver-secret.yaml", "wb")
+    kubeconfig_file_etc.syswrite(data)
+    kubeconfig_file_etc.close
+
+    data = File.read("provisioning/roles/bootkube/files/kube-controller-manager-secret.tmpl")
+    data = data.gsub("{{CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
+    data = data.gsub("{{SERVICE_ACCOUNT_KEY}}", Base64.strict_encode64(service_account_key.to_pem))
+
+
+    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/files/manifests/kube-controller-manager-secret.yaml", "wb")
+    kubeconfig_file_etc.syswrite(data)
+    kubeconfig_file_etc.close
+    # END BOOTKUBE MANIFESTS
+
   end
 
   # Create the master nodes.

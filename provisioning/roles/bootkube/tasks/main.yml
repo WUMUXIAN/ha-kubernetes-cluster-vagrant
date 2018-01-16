@@ -1,0 +1,73 @@
+########################################
+# Bootstrap kubernetes using bootkube  #
+########################################
+
+- name: Make sure the bootkube directory exists
+  run_once: true
+  file:
+    path: "{{ bootkube_directory }}/{{ item }}"
+    state: directory
+  with_items:
+    - assets/tls
+    - assets/manifests
+    - assets/auth
+    - assets/bootstrap-manifests
+
+- name: Repalce the kubeconfig file
+  run_once: true
+  copy:
+    remote_src: true
+    src: "/etc/kubernetes/kubeconfig"
+    dest: "{{ bootkube_directory }}/assets/auth/kubeconfig"
+
+- name: Copy over the certs and keys
+  run_once: true
+  copy:
+    src: "./{{ item }}"
+    dest: "{{ bootkube_directory }}/assets/{{ item }}"
+  with_items:
+    - tls/apiserver.crt
+    - tls/apiserver.key
+    - tls/service-account.key
+    - tls/service-account.pub
+
+- name: Copy over the certs and keys from remote
+  run_once: true
+  copy:
+    remote_src: true
+    src: "{{ item.0 }}"
+    dest: "{{ bootkube_directory }}/assets/tls/{{ item.1 }}"
+  with_together:
+    - ["/etc/ssl/etcd/ca.crt","/etc/ssl/etcd/etcd-client.key","/etc/ssl/etcd/etcd-client.crt","/etc/kubernetes/ca.crt","/etc/kubernetes/ca.key"]
+    - ["etcd-client-ca.crt","etcd-client.key","etcd-client.crt","ca.crt","ca.key"]
+
+- name: Generate kubelet.key and kubelet.crt
+  run_once: true
+  shell: "grep '{{ item.0 }}' /etc/kubernetes/kubeconfig | awk '{print $2}' | base64 -d > {{ bootkube_directory }}/assets/tls/{{ item.1 }}"
+  with_together:
+    - ["client-key-data", "client-certificate-data"]
+    - ["kubelet.key", "kubelet.crt"]
+
+- name: Copy bootstrap-manifests
+  run_once: true
+  template:
+    src: "./bootstrap-manifests/{{ item }}.j2"
+    dest: "{{ bootkube_directory }}/assets/bootstrap-manifests/{{ item }}"
+  with_items:
+    - bootstrap-apiserver.yaml
+    - bootstrap-controller-manager.yaml
+    - bootstrap-scheduler.yaml
+
+- name: Copy over the bootkube.sh
+  run_once: true
+  template:
+    src: bootkube.sh.j2
+    dest: "{{ bootkube_directory }}/bootkube.sh"
+    mode: u+x
+
+# - name: Run the script
+#   run_once: true
+#   command: sh bootkube.sh
+#   args:
+#     chdir: "{{ bootkube_directory }}"
+#   ignore_errors: True

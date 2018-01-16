@@ -19,15 +19,5 @@
   gather_facts: True
   roles:
     - etcd
-
-
-#####################################
-# Install node components cluster #
-#####################################
-
-- name: all
-  hosts: all
-  become: true
-  gather_facts: True
-  roles:
     - kubelet
+    - bootkube
