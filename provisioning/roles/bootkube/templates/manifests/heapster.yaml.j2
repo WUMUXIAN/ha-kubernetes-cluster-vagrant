@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: "extensions/v1beta1"
 kind: Deployment
 metadata:
   name: heapster
@@ -12,46 +12,68 @@ spec:
   selector:
     matchLabels:
       k8s-app: heapster
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
         k8s-app: heapster
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       containers:
       - name: heapster
         image: gcr.io/google_containers/heapster:v1.4.1
+        imagePullPolicy: IfNotPresent
         command:
-          - /heapster
-          - --source=kubernetes.summary_api:''
+        - /heapster
+        - --source=kubernetes.summary_api:''
         livenessProbe:
+          failureThreshold: 3
           httpGet:
             path: /healthz
             port: 8082
             scheme: HTTP
           initialDelaySeconds: 180
+          periodSeconds: 10
+          successThreshold: 1
           timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: 81m
+            memory: 148Mi
+          requests:
+            cpu: 81m
+            memory: 148Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
       - name: heapster-nanny
         image: gcr.io/google_containers/addon-resizer:2.1
+        imagePullPolicy: IfNotPresent
         command:
-          - /pod_nanny
-          - --cpu=80m
-          - --extra-cpu=0.5m
-          - --memory=140Mi
-          - --extra-memory=4Mi
-          - --deployment=heapster
-          - --container=heapster
-          - --poll-period=300000
+        - /pod_nanny
+        - --cpu=80m
+        - --extra-cpu=0.5m
+        - --memory=140Mi
+        - --extra-memory=4Mi
+        - --deployment=heapster
+        - --container=heapster
+        - --poll-period=300000
         env:
-          - name: MY_POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: MY_POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+
         resources:
           limits:
             cpu: 50m
@@ -59,12 +81,19 @@ spec:
           requests:
             cpu: 50m
             memory: 90Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
       tolerations:
-      - key: "CriticalAddonsOnly"
-        operator: "Exists"
-      - key: "node-role.kubernetes.io/master"
-        operator: "Exists"
-        effect: "NoSchedule"
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
 
 ---
 
