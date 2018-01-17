@@ -1,0 +1,13 @@
+[Unit]
+Description=Bootstrap a Kubernetes cluster
+ConditionPathExists=!/opt/bootkube/init_bootkube.done
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory=/opt/bootkube
+User=root
+Group=root
+ExecStart=/usr/bin/bash /opt/bootkube/bootkube.sh
+ExecStartPost=/bin/touch /opt/bootkube/init_bootkube.done
+[Install]
+WantedBy=multi-user.target

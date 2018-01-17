@@ -86,9 +86,15 @@
     dest: "{{ bootkube_directory }}/bootkube.sh"
     mode: u+x
 
-# - name: Run the script
-#   run_once: true
-#   command: sh bootkube.sh
-#   args:
-#     chdir: "{{ bootkube_directory }}"
-#   ignore_errors: True
+- name: Create the bootkube service
+  run_once: true
+  copy:
+    src: bootkube.service
+    dest: /etc/systemd/system/bootkube.service
+
+- name: Enable and start bootkube service
+  run_once: true
+  systemd:
+    name: bootkube
+    state: started
+    daemon_reload: yes
