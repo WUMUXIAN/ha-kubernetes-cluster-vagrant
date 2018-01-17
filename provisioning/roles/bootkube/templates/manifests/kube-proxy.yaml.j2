@@ -6,7 +6,6 @@ metadata:
   labels:
     tier: node
     k8s-app: kube-proxy
-    tectonic-operators.coreos.com/managed-by: kube-version-operator
 spec:
   updateStrategy:
     rollingUpdate:
@@ -17,7 +16,6 @@ spec:
       labels:
         tier: node
         k8s-app: kube-proxy
-        tectonic-operators.coreos.com/managed-by: kube-version-operator
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:

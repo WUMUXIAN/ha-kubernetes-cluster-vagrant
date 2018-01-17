@@ -30,9 +30,10 @@ ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --pod-manifest-path=/etc/kubernetes/manifests \
   --allow-privileged \
   --node-labels=node-role.kubernetes.io/{{ hostvars[inventory_hostname]['role'] }} \
+  --node-ip={{ hostvars[inventory_hostname]['private_ipv4'] }} \
   --register-with-taints=node-role.kubernetes.io/{{ hostvars[inventory_hostname]['role'] }}=:NoSchedule \
-  --cluster_dns=10.3.0.10 \
-  --cluster_domain=cluster.local
+  --cluster-dns=10.3.0.10 \
+  --cluster-domain=cluster.local
 ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
 Restart=always
 RestartSec=10

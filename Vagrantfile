@@ -104,7 +104,7 @@ Vagrant.configure("2") do |config|
 
   hostvars, masters = {}, []
 
-  if ARGV[0] == 'up'
+  if ARGV[0] == 'up' && !File.exist?("provisioning/roles/etcd/files/ca.crt")
     FileUtils::mkdir_p 'provisioning/roles/etcd/files'
     FileUtils::mkdir_p 'provisioning/roles/kubelet/files'
     FileUtils::mkdir_p 'provisioning/roles/bootkube/files/tls'
@@ -291,7 +291,6 @@ Vagrant.configure("2") do |config|
     data = data.gsub("{{ETCD_CA_CRT}}", Base64.strict_encode64(etcd_cert.to_pem))
     data = data.gsub("{{ETCD_CLIENT_CRT}}", Base64.strict_encode64(etcd_client_cert.to_pem))
     data = data.gsub("{{ETCD_CLIENT_KEY}}", Base64.strict_encode64(etcd_client_key.to_pem))
-    data = data.gsub("{{OIDC_CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
 
     kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-apiserver-secret.yaml.j2", "wb")
     kubeconfig_file_etc.syswrite(data)
@@ -306,7 +305,6 @@ Vagrant.configure("2") do |config|
     kubeconfig_file_etc.syswrite(data)
     kubeconfig_file_etc.close
     # END BOOTKUBE MANIFESTS
-
   end
 
   # Create the master nodes.

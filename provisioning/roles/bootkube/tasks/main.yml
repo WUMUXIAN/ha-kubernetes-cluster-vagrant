@@ -69,10 +69,15 @@
     - kube-controller-manager-disruption.yaml
     - kube-controller-manager-secret.yaml
     - kube-controller-manager.yaml
+    - kube-dns.yaml
     - kube-flannel.yaml
     - kube-proxy.yaml
     - kube-scheduler-disruption.yaml
     - kube-scheduler.yaml
+    - kube-system-rbac-role-binding.yaml
+    - pod-checkpointer.yaml
+    - heapster.yaml
+    - kube-dashboard.yaml
 
 - name: Copy over the bootkube.sh
   run_once: true

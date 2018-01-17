@@ -4,6 +4,8 @@
 *.ign.merged
 .DS_Store
 *.retry
+tls
 *.crt
 *.key
 kubeconfig.j2
+*-secret.yaml.j2

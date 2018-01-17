@@ -6,9 +6,9 @@ metadata:
   labels:
     tier: control-plane
     k8s-app: kube-scheduler
-    tectonic-operators.coreos.com/managed-by: kube-version-operator
 spec:
   replicas: 1
+  revisionHistoryLimit: 0
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,8 +22,7 @@ spec:
       labels:
         tier: control-plane
         k8s-app: kube-scheduler
-        pod-anti-affinity: kube-scheduler-1.7.5-tectonic.1
-        tectonic-operators.coreos.com/managed-by: kube-version-operator
+        pod-anti-affinity: kube-scheduler-1.7.5
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
@@ -32,7 +31,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchLabels:
-                pod-anti-affinity: kube-scheduler-1.7.5-tectonic.1
+                pod-anti-affinity: kube-scheduler-1.7.5
             namespaces:
               - kube-system
             topologyKey: kubernetes.io/hostname
