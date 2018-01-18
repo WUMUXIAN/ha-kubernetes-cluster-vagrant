@@ -1,0 +1,44 @@
+##############################
+# Install ingress controller #
+##############################
+
+- name: Copy all the configuration files to server
+  copy:
+    src: "{{ item }}"
+    dest: "./{{ item }}"
+  with_items:
+    - pull.json
+    - default-backend.yaml
+    - ingress-controller.yaml
+    - nginx.yaml
+    - ingress-nginx.yaml
+
+- name: Create the secret to pull the coreos image
+  command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig create -f pull.json
+  args:
+    chdir: /home/core
+  ignore_errors: True
+
+- name: Create the default backend
+  command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig create -f default-backend.yaml
+  args:
+    chdir: /home/core
+  ignore_errors: True
+
+- name: Create the ingress controller
+  command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig create -f ingress-controller.yaml
+  args:
+    chdir: /home/core
+  ignore_errors: True
+
+- name: Create nginx service
+  command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig create -f nginx.yaml
+  args:
+    chdir: /home/core
+  ignore_errors: True
+
+- name: Create ingress for nginx service
+  command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig create -f ingress-nginx.yaml
+  args:
+    chdir: /home/core
+  ignore_errors: True

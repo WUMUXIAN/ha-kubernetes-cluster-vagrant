@@ -8,16 +8,46 @@
   roles:
     - pypy
 
+################################
+# Install etcd on master nodes #
+################################
 
-#####################################
-# Install master components cluster #
-#####################################
-
-- name: master
+- name: etcd
   hosts: role=master
   become: true
   gather_facts: True
   roles:
     - etcd
+
+################################
+# Install kubelet on all nodes #
+################################
+
+- name: kubelet
+  hosts: all
+  become: true
+  gather_facts: True
+  roles:
     - kubelet
+
+################################
+# Bootstrap kubernetes cluster #
+################################
+
+- name: master03
+  hosts: master03
+  become: true
+  gather_facts: True
+  roles:
     - bootkube
+
+#############################
+# Create ingress controller #
+#############################
+
+- name: master03
+  hosts: master03
+  become: true
+  gather_facts: True
+  roles:
+    - ingress

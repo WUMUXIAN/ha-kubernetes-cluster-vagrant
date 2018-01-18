@@ -31,8 +31,8 @@ ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --allow-privileged \
   --node-labels=node-role.kubernetes.io/{{ hostvars[inventory_hostname]['role'] }} \
   --node-ip={{ hostvars[inventory_hostname]['private_ipv4'] }} \
-  --register-with-taints=node-role.kubernetes.io/{{ hostvars[inventory_hostname]['role'] }}=:NoSchedule \
-  --cluster-dns=10.3.0.10 \
+  {% if hostvars[inventory_hostname]['role'] == "master" %}--register-with-taints=node-role.kubernetes.io/{{ hostvars[inventory_hostname]['role'] }}=:NoSchedule \
+  {% endif %}--cluster-dns=10.3.0.10 \
   --cluster-domain=cluster.local
 ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
 Restart=always

@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: tds-ingress
+  namespace: tds-cloud
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/use-port-in-redirects: "true"
+    kubernetes.io/ingress.class: "tds"
+spec:
+  # tls:
+  # - hosts:
+  #   - nginx.tectusdreamlab.com
+  #   secretName: tds-ingress-tls-secret
+  rules:
+  - host: nginx.tectusdreamlab.com
+    http:
+      paths:
+      - backend:
+          serviceName: nginx
+          servicePort: 80

@@ -78,6 +78,7 @@
     - pod-checkpointer.yaml
     - heapster.yaml
     - kube-dashboard.yaml
+    - namespace.yaml
 
 - name: Copy over the bootkube.sh
   run_once: true

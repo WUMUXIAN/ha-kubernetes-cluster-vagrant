@@ -24,11 +24,13 @@ if not plugins_to_install.empty?
   end
 end
 
-$master_vm_memory = 1024
+$vm_memory = 1024
 $master_ip_start = "172.17.5.10"
+$worker_ip_start = "172.17.5.20"
 
 BOX_VERSION = ENV["BOX_VERSION"] || "1465.3.0"
 MASTER_COUNT = ENV["MASTER_COUNT"] || 3
+WORKER_COUNT = ENV["WORKER_COUNT"] || 1
 IGNITION_PATH = File.expand_path("./provisioning/node.ign")
 
 def signTLS(is_ca:, subject:, issuer_subject:'', issuer_cert:nil, public_key:, ca_private_key:, key_usage:'', extended_key_usage:'', san:'')
@@ -102,7 +104,7 @@ Vagrant.configure("2") do |config|
     vb.gui = false
   end
 
-  hostvars, masters = {}, []
+  hostvars, masters, workers = {}, [], []
 
   if ARGV[0] == 'up' && !File.exist?("provisioning/roles/etcd/files/ca.crt")
     FileUtils::mkdir_p 'provisioning/roles/etcd/files'
@@ -307,6 +309,43 @@ Vagrant.configure("2") do |config|
     # END BOOTKUBE MANIFESTS
   end
 
+  # Create the worker nodes.
+  (1..WORKER_COUNT).each do |w|
+    # Set the host name and ip
+    worker_name = "worker0#{w}"
+    worker_ip = $worker_ip_start + "#{w}"
+
+    config.vm.define worker_name do |worker|
+      worker.vm.hostname = worker_name
+      worker.vm.provider :virtualbox do |vb|
+        vb.memory = $vm_memory
+        worker.ignition.enabled = true
+      end
+
+      # Set the private ip.
+      worker.vm.network :private_network, ip: worker_ip
+      worker.ignition.ip = worker_ip
+
+      # Set the ignition data.
+      worker.vm.provider :virtualbox do |vb|
+        worker.ignition.hostname = "#{worker_name}.tdskubes.com"
+        worker.ignition.drive_root = "provisioning"
+        worker.ignition.drive_name = "config-worker-#{w}"
+        worker.ignition.path = IGNITION_PATH
+      end
+      workers << worker_name
+      worker_hostvars = {
+        worker_name => {
+          "ansible_python_interpreter" => "/home/core/bin/python",
+          "private_ipv4" => worker_ip,
+          "public_ipv4" => worker_ip,
+          "role" => "worker",
+        }
+      }
+      hostvars.merge!(worker_hostvars)
+    end
+  end
+
   # Create the master nodes.
   (1..MASTER_COUNT).each do |m|
     # Set the host name and ip
@@ -317,7 +356,7 @@ Vagrant.configure("2") do |config|
     config.vm.define master_name, primary: last do |master|
       master.vm.hostname = master_name
       master.vm.provider :virtualbox do |vb|
-        vb.memory = $master_vm_memory
+        vb.memory = $vm_memory
         master.ignition.enabled = true
       end
 
@@ -348,14 +387,19 @@ Vagrant.configure("2") do |config|
         config.vm.provision :ansible do |ansible|
           ansible.groups = {
             "role=master": masters,
-            "all": masters,
+            "role=worker": workers,
+            "all": masters + workers,
           }
           ansible.host_vars = hostvars
           # this will force the provision to happen on all machines to achieve parallel provisioning.
           ansible.limit = "all"
           ansible.playbook = "provisioning/playbook.yml"
         end
+
+        config.vm.provision :file, :source => "provisioning/startup.sh", :destination => "/tmp/startup.sh"
+        config.vm.provision :shell, :inline => "chmod +x /tmp/startup.sh && /tmp/startup.sh && rm /tmp/startup.sh", :privileged => true
       end
     end
   end
+
 end

@@ -1,0 +1,70 @@
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tds-custom-error
+  namespace: tds-cloud
+data:
+  custom-http-errors: "404,500,503,504"
+  server-name-hash-bucket-size: "1024"
+  use-http2: "false"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: default-http-backend
+  namespace: tds-cloud
+  labels:
+   k8s-app: default-http-backend
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+   k8s-app: default-http-backend
+
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: default-http-backend
+  namespace: tds-cloud
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: default-http-backend
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: default-http-backend
+        # Any image is permissable as long as:
+        # 1. It serves a 404 page at /
+        # 2. It serves 200 on a /healthz endpoint
+        image: quay.io/coreos/tectonic-error-server:1.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 10m
+            memory: 20Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+      imagePullSecrets:
+      - name: coreos-pull-secret
