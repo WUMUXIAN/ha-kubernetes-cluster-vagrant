@@ -7,5 +7,16 @@
   "networkd": {},
   "passwd": {},
   "storage": {},
-  "systemd": {}
+  "systemd": {
+    "units": [
+      {
+        "mask": true,
+        "name": "locksmithd.service"
+      },
+      {
+        "mask": true,
+        "name": "update-engine.service"
+      }
+    ]
+  }
 }

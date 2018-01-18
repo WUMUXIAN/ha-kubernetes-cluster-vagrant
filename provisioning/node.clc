@@ -1,2 +1,7 @@
 # Run `ct -pretty -platform vagrant-virtualbox < node.clc > node.ign` to regenerate the ignition config
-storage:
+systemd:
+  units:
+    - name: locksmithd.service
+      mask: true
+    - name: update-engine.service
+      mask: true

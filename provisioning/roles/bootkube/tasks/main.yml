@@ -95,6 +95,7 @@
 - name: Enable and start bootkube service
   run_once: true
   systemd:
+    no_block: yes
     name: bootkube
     state: started
     daemon_reload: yes
