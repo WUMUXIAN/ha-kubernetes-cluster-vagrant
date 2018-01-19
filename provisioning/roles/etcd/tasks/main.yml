@@ -14,7 +14,7 @@
 
 - name: Copy over the certs and keys
   copy:
-    src: "{{ item }}"
+    src: "tls/{{ item }}"
     dest: "{{ ssl_directory }}/{{ item }}"
   with_items:
     - ca.crt
@@ -27,7 +27,7 @@
 
 - name: Copy over the peers certs and keys
   copy:
-    src: "{{ item }}"
+    src: "tls/{{ item }}"
     dest: "{{ ssl_directory }}/{{ item }}"
   with_items:
     - "{{ inventory_hostname }}.crt"

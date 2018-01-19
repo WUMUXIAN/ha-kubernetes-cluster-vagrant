@@ -106,207 +106,262 @@ Vagrant.configure("2") do |config|
 
   hostvars, masters, workers = {}, [], []
 
-  if ARGV[0] == 'up' && !File.exist?("provisioning/roles/etcd/files/ca.crt")
-    FileUtils::mkdir_p 'provisioning/roles/etcd/files'
-    FileUtils::mkdir_p 'provisioning/roles/kubelet/files'
-    FileUtils::mkdir_p 'provisioning/roles/bootkube/files/tls'
-    FileUtils::mkdir_p 'provisioning/roles/bootkube/templates/manifests'
-    # BEGIN ETCD CA
-    etcd_key = OpenSSL::PKey::RSA.new(2048)
-    etcd_public_key = etcd_key.public_key
+  if ARGV[0] == 'up'
+    recreated_required = false
 
-    etcd_cert = signTLS(is_ca:          true,
-                        subject:        "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
-                        public_key:     etcd_public_key,
-                        ca_private_key: etcd_key,
-                        key_usage:      "digitalSignature,keyEncipherment,keyCertSign")
+    # If the tls files for ETCD does not exist, create them.
+    if !File.directory?("provisioning/roles/etcd/files/tls")
+      recreated_required = true
+      # BEGIN ETCD CA
+      FileUtils::mkdir_p 'provisioning/roles/etcd/files/tls'
+      etcd_key = OpenSSL::PKey::RSA.new(2048)
+      etcd_public_key = etcd_key.public_key
 
-    etcd_file = File.new("provisioning/roles/etcd/files/ca.crt", "wb")
-    etcd_file.syswrite(etcd_cert.to_pem)
-    etcd_file.close
-    # END ETCD CA
+      etcd_cert = signTLS(is_ca:          true,
+                          subject:        "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
+                          public_key:     etcd_public_key,
+                          ca_private_key: etcd_key,
+                          key_usage:      "digitalSignature,keyEncipherment,keyCertSign")
 
-    IPs = []
-    (1..MASTER_COUNT).each do |m|
-      IPs << "IP:" + $master_ip_start + "#{m}"
+      etcd_file = File.new("provisioning/roles/etcd/files/tls/ca.crt", "wb")
+      etcd_file.syswrite(etcd_cert.to_pem)
+      etcd_file.close
+      # END ETCD CA
+
+      IPs = []
+      (1..MASTER_COUNT).each do |m|
+        IPs << "IP:" + $master_ip_start + "#{m}"
+      end
+
+      (1..MASTER_COUNT).each do |m|
+        # BEGIN ETCD PEER
+        peer_key = OpenSSL::PKey::RSA.new(2048)
+        peer_public_key = peer_key.public_key
+
+        peer_cert = signTLS(is_ca:              false,
+                            subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd",
+                            issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
+                            issuer_cert:        etcd_cert,
+                            public_key:         peer_public_key,
+                            ca_private_key:     etcd_key,
+                            key_usage:          "keyEncipherment",
+                            extended_key_usage: "serverAuth,clientAuth",
+                            san:                "DNS:localhost,DNS:*.tdskubes.com,DNS:*.kube-etcd.kube-system.svc.cluster.local,DNS:kube-etcd-client.kube-system.svc.cluster.local,#{IPs.join(',')},IP:10.3.0.15,IP:10.3.0.20")
+
+        peer_file = File.new("provisioning/roles/etcd/files/tls/master0#{m}.crt", "wb")
+        peer_file.syswrite(peer_cert.to_pem)
+        peer_file.close
+
+        peer_key_file= File.new("provisioning/roles/etcd/files/tls/master0#{m}.key", "wb")
+        peer_key_file.syswrite(peer_key.to_pem)
+        peer_key_file.close
+        # END ETCD PEER
+      end
+
+      # BEGIN ETCD SERVER
+      server_key = OpenSSL::PKey::RSA.new(2048)
+      server_public_key = server_key.public_key
+
+      server_cert = signTLS(is_ca:              false,
+                            subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd",
+                            issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
+                            issuer_cert:        etcd_cert,
+                            public_key:         server_public_key,
+                            ca_private_key:     etcd_key,
+                            key_usage:          "keyEncipherment",
+                            extended_key_usage: "serverAuth",
+                            san:                "DNS:localhost,DNS:*.kube-etcd.kube-system.svc.cluster.local,DNS:kube-etcd-client.kube-system.svc.cluster.local,IP:127.0.0.1,#{IPs.join(',')},IP:10.3.0.15,IP:10.3.0.20")
+
+      server_file = File.new("provisioning/roles/etcd/files/tls/server.crt", "wb")
+      server_file.syswrite(server_cert.to_pem)
+      server_file.close
+
+      server_key_file= File.new("provisioning/roles/etcd/files/tls/server.key", "wb")
+      server_key_file.syswrite(server_key.to_pem)
+      server_key_file.close
+      # END ETCD SERVER
+
+      # BEGIN ETCD CLIENT
+      etcd_client_key = OpenSSL::PKey::RSA.new(2048)
+      etcd_client_public_key = etcd_client_key.public_key
+
+      etcd_client_cert = signTLS(is_ca:              false,
+                                 subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd",
+                                 issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
+                                 issuer_cert:        etcd_cert,
+                                 public_key:         etcd_client_public_key,
+                                 ca_private_key:     etcd_key,
+                                 key_usage:          "keyEncipherment",
+                                 extended_key_usage: "clientAuth")
+
+      etcd_client_file_tec = File.new("provisioning/roles/etcd/files/tls/etcd-client.crt", "wb")
+      etcd_client_file_tec.syswrite(etcd_client_cert.to_pem)
+      etcd_client_file_tec.close
+
+      etcd_client_file_tec = File.new("provisioning/roles/etcd/files/tls/etcd-client.key", "wb")
+      etcd_client_file_tec.syswrite(etcd_client_key.to_pem)
+      etcd_client_file_tec.close
+      # END ETCD CLIENT
     end
 
-    (1..MASTER_COUNT).each do |m|
-      # BEGIN ETCD PEER
-      peer_key = OpenSSL::PKey::RSA.new(2048)
-      peer_public_key = peer_key.public_key
+    # If the tls files for Kubernetes does not exist, create them
+    if !File.directory?("provisioning/roles/kubelet/files/tls")
+      FileUtils::mkdir_p 'provisioning/roles/kubelet/files/tls'
+      recreated_required = true
+      # BEGIN KUBE CA
+      kube_key = OpenSSL::PKey::RSA.new(2048)
+      kube_public_key = kube_key.public_key
+      kube_cert = signTLS(is_ca:          true,
+                          subject:        "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
+                          public_key:     kube_public_key,
+                          ca_private_key: kube_key,
+                          key_usage:      "digitalSignature,keyEncipherment,keyCertSign")
 
-      peer_cert = signTLS(is_ca:              false,
-                          subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd",
-                          issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
-                          issuer_cert:        etcd_cert,
-                          public_key:         peer_public_key,
-                          ca_private_key:     etcd_key,
-                          key_usage:          "keyEncipherment",
-                          extended_key_usage: "serverAuth,clientAuth",
-                          san:                "DNS:localhost,DNS:*.tdskubes.com,DNS:*.kube-etcd.kube-system.svc.cluster.local,DNS:kube-etcd-client.kube-system.svc.cluster.local,#{IPs.join(',')},IP:10.3.0.15,IP:10.3.0.20")
+      kube_file_tls = File.new("provisioning/roles/kubelet/files/tls/ca.crt", "wb")
+      kube_file_tls.syswrite(kube_cert.to_pem)
+      kube_file_tls.close
+      kube_key_file= File.new("provisioning/roles/kubelet/files/tls/ca.key", "wb")
+      kube_key_file.syswrite(kube_key.to_pem)
+      kube_key_file.close
+      # END KUBE CA
 
-      peer_file = File.new("provisioning/roles/etcd/files/master0#{m}.crt", "wb")
-      peer_file.syswrite(peer_cert.to_pem)
-      peer_file.close
+      # BEGIN KUBE CLIENT (KUBELET)
+      client_key = OpenSSL::PKey::RSA.new(2048)
+      client_public_key = client_key.public_key
 
-      peer_key_file= File.new("provisioning/roles/etcd/files/master0#{m}.key", "wb")
-      peer_key_file.syswrite(peer_key.to_pem)
-      peer_key_file.close
-      # END ETCD PEER
+      client_cert = signTLS(is_ca:              false,
+                            subject:            "/C=SG/ST=Singapore/L=Singapore/O=system:masters/OU=IT/CN=kubelet",
+                            issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
+                            issuer_cert:        kube_cert,
+                            public_key:         client_public_key,
+                            ca_private_key:     kube_key,
+                            key_usage:          "digitalSignature,keyEncipherment",
+                            extended_key_usage: "serverAuth,clientAuth")
+
+      client_file_tls = File.new("provisioning/roles/kubelet/files/tls/kubelet.crt", "wb")
+      client_file_tls.syswrite(client_cert.to_pem)
+      client_file_tls.close
+      client_key_file= File.new("provisioning/roles/kubelet/files/tls/kubelet.key", "wb")
+      client_key_file.syswrite(client_key.to_pem)
+      client_key_file.close
+      # END CLIENT
+
+      # START KUBECONFIG
+      data = File.read("provisioning/roles/kubelet/templates/kubeconfig.tmpl")
+      data = data.gsub("{{CA_CERT}}", Base64.strict_encode64(kube_cert.to_pem))
+      data = data.gsub("{{CLIENT_CERT}}", Base64.strict_encode64(client_cert.to_pem))
+      data = data.gsub("{{CLIENT_KEY}}", Base64.strict_encode64(client_key.to_pem))
+
+      kubeconfig_file = File.new("provisioning/roles/kubelet/templates/kubeconfig.j2", "wb")
+      kubeconfig_file.syswrite(data)
+      kubeconfig_file.close
+      # END KUBECONFIG
     end
 
-    # BEGIN ETCD SERVER
-    server_key = OpenSSL::PKey::RSA.new(2048)
-    server_public_key = server_key.public_key
+    if recreated_required || !File.directory?("provisioning/roles/bootkube/files/tls")
+      FileUtils::mkdir_p 'provisioning/roles/bootkube/files/tls'
+      FileUtils::mkdir_p 'provisioning/roles/bootkube/templates/manifests'
 
-    server_cert = signTLS(is_ca:              false,
-                          subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd",
-                          issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
-                          issuer_cert:        etcd_cert,
-                          public_key:         server_public_key,
-                          ca_private_key:     etcd_key,
-                          key_usage:          "keyEncipherment",
-                          extended_key_usage: "serverAuth",
-                          san:                "DNS:localhost,DNS:*.kube-etcd.kube-system.svc.cluster.local,DNS:kube-etcd-client.kube-system.svc.cluster.local,IP:127.0.0.1,#{IPs.join(',')},IP:10.3.0.15,IP:10.3.0.20")
+      kube_cert_raw = File.read("provisioning/roles/kubelet/files/tls/ca.crt")
+      kube_cert = OpenSSL::X509::Certificate.new(kube_cert_raw)
+      kube_key_raw = File.read("provisioning/roles/kubelet/files/tls/ca.key")
+      kube_key = OpenSSL::PKey::RSA.new(kube_key_raw)
 
-    server_file = File.new("provisioning/roles/etcd/files/server.crt", "wb")
-    server_file.syswrite(server_cert.to_pem)
-    server_file.close
+      etcd_cert_raw = File.read("provisioning/roles/etcd/files/tls/ca.crt")
+      etcd_cert = OpenSSL::X509::Certificate.new(etcd_cert_raw)
+      etcd_client_cert_raw = File.read("provisioning/roles/etcd/files/tls/etcd-client.crt")
+      etcd_client_cert = OpenSSL::X509::Certificate.new(etcd_client_cert_raw)
+      etcd_client_key_raw = File.read("provisioning/roles/etcd/files/tls/etcd-client.key")
+      etcd_client_key = OpenSSL::PKey::RSA.new(etcd_client_key_raw)
 
-    server_key_file= File.new("provisioning/roles/etcd/files/server.key", "wb")
-    server_key_file.syswrite(server_key.to_pem)
-    server_key_file.close
-    # END ETCD SERVER
+      # START APISERVER
+      apiserver_key = OpenSSL::PKey::RSA.new(2048)
+      apiserver_public_key = apiserver_key.public_key
 
-    # BEGIN ETCD CLIENT
-    etcd_client_key = OpenSSL::PKey::RSA.new(2048)
-    etcd_client_public_key = etcd_client_key.public_key
+      apiserver_cert = signTLS(is_ca:              false,
+                               subject:            "/C=SG/ST=Singapore/L=Singapore/O=kube-master/OU=IT/CN=kube-apiserver",
+                               issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
+                               issuer_cert:        kube_cert,
+                               public_key:         apiserver_public_key,
+                               ca_private_key:     kube_key,
+                               key_usage:          "digitalSignature,keyEncipherment",
+                               extended_key_usage: "serverAuth,clientAuth",
+                               san:                "DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local,#{IPs.join(',')},IP:10.3.0.1")
 
-    etcd_client_cert = signTLS(is_ca:              false,
-                               subject:            "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd",
-                               issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=Security/OU=IT/CN=etcd-ca",
-                               issuer_cert:        etcd_cert,
-                               public_key:         etcd_client_public_key,
-                               ca_private_key:     etcd_key,
-                               key_usage:          "keyEncipherment",
-                               extended_key_usage: "clientAuth")
+      apiserver_file_tls = File.new("provisioning/roles/bootkube/files/tls/apiserver.crt", "wb")
+      apiserver_file_tls.syswrite(apiserver_cert.to_pem)
+      apiserver_file_tls.close
+      apiserver_key_file= File.new("provisioning/roles/bootkube/files/tls/apiserver.key", "wb")
+      apiserver_key_file.syswrite(apiserver_key.to_pem)
+      apiserver_key_file.close
+      # END APISERVER
 
-    etcd_client_file_tec = File.new("provisioning/roles/etcd/files/etcd-client.crt", "wb")
-    etcd_client_file_tec.syswrite(etcd_client_cert.to_pem)
-    etcd_client_file_tec.close
+      # START SERVICE ACCOUNT
+      service_account_key = OpenSSL::PKey::RSA.new(2048)
+      service_account_pubkey = service_account_key.public_key
 
-    etcd_client_file_tec = File.new("provisioning/roles/etcd/files/etcd-client.key", "wb")
-    etcd_client_file_tec.syswrite(etcd_client_key.to_pem)
-    etcd_client_file_tec.close
-    # END ETCD CLIENT
+      service_account_key_file= File.new("provisioning/roles/bootkube/files/tls/service-account.key", "wb")
+      service_account_key_file.syswrite(service_account_key.to_pem)
+      service_account_key_file.close
+      service_account_pubkey_file= File.new("provisioning/roles/bootkube/files/tls/service-account.pub", "wb")
+      service_account_pubkey_file.syswrite(service_account_pubkey.to_pem)
+      service_account_pubkey_file.close
+      # END SERVICE ACCOUNT
 
-    # BEGIN KUBE CA
-    kube_key = OpenSSL::PKey::RSA.new(2048)
-    kube_public_key = kube_key.public_key
-    kube_cert = signTLS(is_ca:          true,
-                        subject:        "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
-                        public_key:     kube_public_key,
-                        ca_private_key: kube_key,
-                        key_usage:      "digitalSignature,keyEncipherment,keyCertSign")
+      # START BOOTKUBE MANIFESTS
+      data = File.read("provisioning/roles/bootkube/files/kube-apiserver-secret.tmpl")
+      data = data.gsub("{{CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
+      data = data.gsub("{{APISERVER_CRT}}", Base64.strict_encode64(apiserver_cert.to_pem))
+      data = data.gsub("{{APISERVER_KEY}}", Base64.strict_encode64(apiserver_key.to_pem))
+      data = data.gsub("{{SERVICE_ACCOUNT_PUB}}", Base64.strict_encode64(service_account_pubkey.to_pem))
+      data = data.gsub("{{ETCD_CA_CRT}}", Base64.strict_encode64(etcd_cert.to_pem))
+      data = data.gsub("{{ETCD_CLIENT_CRT}}", Base64.strict_encode64(etcd_client_cert.to_pem))
+      data = data.gsub("{{ETCD_CLIENT_KEY}}", Base64.strict_encode64(etcd_client_key.to_pem))
 
-    kube_file_tls = File.new("provisioning/roles/kubelet/files/ca.crt", "wb")
-    kube_file_tls.syswrite(kube_cert.to_pem)
-    kube_file_tls.close
-    kube_key_file= File.new("provisioning/roles/kubelet/files/ca.key", "wb")
-    kube_key_file.syswrite(kube_key.to_pem)
-    kube_key_file.close
-    # END KUBE CA
+      kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-apiserver-secret.yaml.j2", "wb")
+      kubeconfig_file_etc.syswrite(data)
+      kubeconfig_file_etc.close
 
-    # BEGIN KUBE CLIENT (KUBELET)
-    client_key = OpenSSL::PKey::RSA.new(2048)
-    client_public_key = client_key.public_key
+      data = File.read("provisioning/roles/bootkube/files/kube-controller-manager-secret.tmpl")
+      data = data.gsub("{{CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
+      data = data.gsub("{{SERVICE_ACCOUNT_KEY}}", Base64.strict_encode64(service_account_key.to_pem))
 
-    client_cert = signTLS(is_ca:              false,
-                          subject:            "/C=SG/ST=Singapore/L=Singapore/O=system:masters/OU=IT/CN=kubelet",
-                          issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
-                          issuer_cert:        kube_cert,
-                          public_key:         client_public_key,
-                          ca_private_key:     kube_key,
-                          key_usage:          "digitalSignature,keyEncipherment",
-                          extended_key_usage: "serverAuth,clientAuth")
 
-    client_file_tls = File.new("provisioning/roles/kubelet/files/kubelet.crt", "wb")
-    client_file_tls.syswrite(client_cert.to_pem)
-    client_file_tls.close
-    client_key_file= File.new("provisioning/roles/kubelet/files/kubelet.key", "wb")
-    client_key_file.syswrite(client_key.to_pem)
-    client_key_file.close
-    # END CLIENT
+      kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-controller-manager-secret.yaml.j2", "wb")
+      kubeconfig_file_etc.syswrite(data)
+      kubeconfig_file_etc.close
+      # END BOOTKUBE MANIFESTS
+    end
 
-    # START KUBECONFIG
-    data = File.read("provisioning/roles/kubelet/templates/kubeconfig.tmpl")
-    data = data.gsub("{{CA_CERT}}", Base64.strict_encode64(kube_cert.to_pem))
-    data = data.gsub("{{CLIENT_CERT}}", Base64.strict_encode64(client_cert.to_pem))
-    data = data.gsub("{{CLIENT_KEY}}", Base64.strict_encode64(client_key.to_pem))
+    if recreated_required || !File.directory?("provisioning/role/ingress/files/tls")
+      FileUtils::mkdir_p 'provisioning/roles/ingress/files/tls'
 
-    kubeconfig_file = File.new("provisioning/roles/kubelet/templates/kubeconfig.j2", "wb")
-    kubeconfig_file.syswrite(data)
-    kubeconfig_file.close
-    # END KUBECONFIG
+      kube_cert_raw = File.read("provisioning/roles/kubelet/files/tls/ca.crt")
+      kube_cert = OpenSSL::X509::Certificate.new(kube_cert_raw)
+      kube_key_raw = File.read("provisioning/roles/kubelet/files/tls/ca.key")
+      kube_key = OpenSSL::PKey::RSA.new(kube_key_raw)
 
-    # START APISERVER
-    apiserver_key = OpenSSL::PKey::RSA.new(2048)
-    apiserver_public_key = apiserver_key.public_key
+      # START INGRESS
+      ingress_key = OpenSSL::PKey::RSA.new(2048)
+      ingress_public_key = ingress_key.public_key
 
-    apiserver_cert = signTLS(is_ca:              false,
-                             subject:            "/C=SG/ST=Singapore/L=Singapore/O=kube-master/OU=IT/CN=kube-apiserver",
+      ingress_cert = signTLS(is_ca:              false,
+                             subject:            "/C=SG/ST=Singapore/L=Singapore/O=tds/OU=IT/CN=nginx.tectusdreamlab.com",
                              issuer_subject:     "/C=SG/ST=Singapore/L=Singapore/O=bootkube/OU=IT/CN=kube-ca",
                              issuer_cert:        kube_cert,
-                             public_key:         apiserver_public_key,
+                             public_key:         ingress_public_key,
                              ca_private_key:     kube_key,
                              key_usage:          "digitalSignature,keyEncipherment",
                              extended_key_usage: "serverAuth,clientAuth",
-                             san:                "DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local,#{IPs.join(',')},IP:10.3.0.1")
-
-    apiserver_file_tls = File.new("provisioning/roles/bootkube/files/tls/apiserver.crt", "wb")
-    apiserver_file_tls.syswrite(apiserver_cert.to_pem)
-    apiserver_file_tls.close
-    apiserver_key_file= File.new("provisioning/roles/bootkube/files/tls/apiserver.key", "wb")
-    apiserver_key_file.syswrite(apiserver_key.to_pem)
-    apiserver_key_file.close
-    # END APISERVER
-
-    # START SERVICE ACCOUNT
-    service_account_key = OpenSSL::PKey::RSA.new(2048)
-    service_account_pubkey = service_account_key.public_key
-
-    service_account_key_file= File.new("provisioning/roles/bootkube/files/tls/service-account.key", "wb")
-    service_account_key_file.syswrite(service_account_key.to_pem)
-    service_account_key_file.close
-    service_account_pubkey_file= File.new("provisioning/roles/bootkube/files/tls/service-account.pub", "wb")
-    service_account_pubkey_file.syswrite(service_account_pubkey.to_pem)
-    service_account_pubkey_file.close
-    # END SERVICE ACCOUNT
-
-    # START BOOTKUBE MANIFESTS
-    data = File.read("provisioning/roles/bootkube/files/kube-apiserver-secret.tmpl")
-    data = data.gsub("{{CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
-    data = data.gsub("{{APISERVER_CRT}}", Base64.strict_encode64(apiserver_cert.to_pem))
-    data = data.gsub("{{APISERVER_KEY}}", Base64.strict_encode64(apiserver_key.to_pem))
-    data = data.gsub("{{SERVICE_ACCOUNT_PUB}}", Base64.strict_encode64(service_account_pubkey.to_pem))
-    data = data.gsub("{{ETCD_CA_CRT}}", Base64.strict_encode64(etcd_cert.to_pem))
-    data = data.gsub("{{ETCD_CLIENT_CRT}}", Base64.strict_encode64(etcd_client_cert.to_pem))
-    data = data.gsub("{{ETCD_CLIENT_KEY}}", Base64.strict_encode64(etcd_client_key.to_pem))
-
-    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-apiserver-secret.yaml.j2", "wb")
-    kubeconfig_file_etc.syswrite(data)
-    kubeconfig_file_etc.close
-
-    data = File.read("provisioning/roles/bootkube/files/kube-controller-manager-secret.tmpl")
-    data = data.gsub("{{CA_CRT}}", Base64.strict_encode64(kube_cert.to_pem))
-    data = data.gsub("{{SERVICE_ACCOUNT_KEY}}", Base64.strict_encode64(service_account_key.to_pem))
-
-
-    kubeconfig_file_etc = File.new("provisioning/roles/bootkube/templates/manifests/kube-controller-manager-secret.yaml.j2", "wb")
-    kubeconfig_file_etc.syswrite(data)
-    kubeconfig_file_etc.close
-    # END BOOTKUBE MANIFESTS
+                             san:                "DNS:nginx1.tectusdreamlab.com,DNS:nginx2.tectusdreamlab.com")
+      ingress_key_file= File.new("provisioning/roles/ingress/files/tls/server.key", "wb")
+      ingress_key_file.syswrite(ingress_key.to_pem)
+      ingress_key_file.close
+      ingress_cert_file = File.new("provisioning/roles/ingress/files/tls/server.crt", "wb")
+      ingress_cert_file.syswrite(ingress_cert.to_pem)
+      ingress_cert_file.close
+      # END INGRESS
+    end
   end
 
   # Create the worker nodes.

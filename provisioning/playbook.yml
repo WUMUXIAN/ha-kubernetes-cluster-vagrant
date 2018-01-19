@@ -34,7 +34,7 @@
 # Bootstrap kubernetes cluster #
 ################################
 
-- name: master03
+- name: bootkube
   hosts: master03
   become: true
   gather_facts: True
@@ -45,7 +45,7 @@
 # Create ingress controller #
 #############################
 
-- name: master03
+- name: ingress
   hosts: master03
   become: true
   gather_facts: True

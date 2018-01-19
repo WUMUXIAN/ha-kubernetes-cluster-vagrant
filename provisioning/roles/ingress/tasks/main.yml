@@ -31,6 +31,20 @@
     chdir: /home/core
   ignore_errors: True
 
+- name: Copy over the server crt and server key
+  copy:
+    src: "tls/{{ item }}"
+    dest: "./{{ item }}"
+  with_items:
+    - server.crt
+    - server.key
+
+- name: Create the tls secret
+  command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig -n tds-cloud create secret tls nginx-ingress-tls-secret --cert=./server.crt --key=./server.key
+  args:
+    chdir: /home/core
+  ignore_errors: True
+
 - name: Create nginx service
   command: ./kubectl --kubeconfig=/etc/kubernetes/kubeconfig create -f nginx.yaml
   args:

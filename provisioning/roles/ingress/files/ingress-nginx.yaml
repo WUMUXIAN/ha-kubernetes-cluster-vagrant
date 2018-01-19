@@ -8,14 +8,23 @@ metadata:
     ingress.kubernetes.io/use-port-in-redirects: "true"
     kubernetes.io/ingress.class: "tds"
 spec:
-  # tls:
-  # - hosts:
-  #   - nginx.tectusdreamlab.com
-  #   secretName: tds-ingress-tls-secret
+  tls:
+  - hosts:
+    - nginx1.tectusdreamlab.com
+    secretName: nginx-ingress-tls-secret
+  - hosts:
+    - nginx2.tectusdreamlab.com
+    secretName: nginx-ingress-tls-secret
   rules:
-  - host: nginx.tectusdreamlab.com
+  - host: nginx1.tectusdreamlab.com
     http:
       paths:
       - backend:
-          serviceName: nginx
+          serviceName: nginx1
+          servicePort: 80
+  - host: nginx2.tectusdreamlab.com
+    http:
+      paths:
+      - backend:
+          serviceName: nginx2
           servicePort: 80
