@@ -100,3 +100,9 @@
     name: bootkube
     state: started
     daemon_reload: yes
+
+- name: Download the kubectl command line tool
+  get_url:
+    url: https://storage.googleapis.com/kubernetes-release/release/v1.7.0/bin/linux/amd64/kubectl
+    dest: kubectl
+    mode: "u+x"

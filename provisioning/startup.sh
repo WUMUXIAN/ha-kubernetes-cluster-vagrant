@@ -1,15 +1,7 @@
 #!/bin/bash
 set -e
 
-KUBECTL_URL=https://storage.googleapis.com/kubernetes-release/release/v1.7.0/bin/linux/amd64/kubectl
-
 trap "{ rm -f /tmp/cat.txt; }" EXIT
-
-if [ ! -f /home/core/kubectl ];then
-  echo "Downloading kubectl"
-  curl -sLO $KUBECTL_URL
-  chmod +x kubectl
-fi
 
 echo "Kubernetes is starting. As a progress check, the list of running pods"
 echo " will be periodically printed."
@@ -19,7 +11,7 @@ echo "~1GB of data will be downloaded."
 
 sleep 2
 
-# Wait for tectonic.service to complete
+# Wait for bootkube to complete bootstraping the Kubernetes cluster.
 SubState=`systemctl show bootkube --property=SubState | awk '{print substr($0,10)}'`
 while [ "$SubState" != "exited" ]; do
     if /home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig get pods --all-namespaces &> /tmp/cat.txt; then
