@@ -13,8 +13,8 @@ sleep 2
 
 # Wait for bootkube to complete bootstraping the Kubernetes cluster.
 SubState=`systemctl show bootkube --property=SubState | awk '{print substr($0,10)}'`
-while [ "$SubState" != "exited" ]; do
-    if /home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig get pods --all-namespaces &> /tmp/cat.txt; then
+while [ "$SubState" != "exited" ] && [ "$SubState" != "dead" ]; do
+    if /home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig get pods -n kube-system &> /tmp/cat.txt; then
         cat /tmp/cat.txt
         echo " "
     fi
@@ -23,7 +23,7 @@ while [ "$SubState" != "exited" ]; do
     SubState=`systemctl show bootkube --property=SubState | awk '{print substr($0,10)}'`
 done
 
-/home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig get pods --all-namespaces > /tmp/cat.txt
+/home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig get pods -n kube-system > /tmp/cat.txt
 cat /tmp/cat.txt
 
 token=`/home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig -n kube-system describe $(/home/core/kubectl --kubeconfig=/etc/kubernetes/kubeconfig -n kube-system get secret -o name | grep 'default-token') | awk '/token:/ {print $2}'`
