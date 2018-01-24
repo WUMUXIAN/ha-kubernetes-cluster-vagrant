@@ -51,3 +51,14 @@
   gather_facts: True
   roles:
     - ingress
+
+###########################
+# Create example services #
+###########################
+
+- name: example
+  hosts: master03
+  become: true
+  gather_facts: True
+  roles:
+    - example

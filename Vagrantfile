@@ -333,8 +333,8 @@ Vagrant.configure("2") do |config|
       # END BOOTKUBE MANIFESTS
     end
 
-    if recreated_required || !File.directory?("provisioning/role/ingress/files/tls")
-      FileUtils::mkdir_p 'provisioning/roles/ingress/files/tls'
+    if recreated_required || !File.directory?("provisioning/roles/example/files/tls")
+      FileUtils::mkdir_p 'provisioning/roles/example/files/tls'
 
       kube_cert_raw = File.read("provisioning/roles/kubelet/files/tls/ca.crt")
       kube_cert = OpenSSL::X509::Certificate.new(kube_cert_raw)
@@ -354,10 +354,10 @@ Vagrant.configure("2") do |config|
                              key_usage:          "digitalSignature,keyEncipherment",
                              extended_key_usage: "serverAuth,clientAuth",
                              san:                "DNS:nginx1.tectusdreamlab.com,DNS:nginx2.tectusdreamlab.com")
-      ingress_key_file= File.new("provisioning/roles/ingress/files/tls/server.key", "wb")
+      ingress_key_file= File.new("provisioning/roles/example/files/tls/server.key", "wb")
       ingress_key_file.syswrite(ingress_key.to_pem)
       ingress_key_file.close
-      ingress_cert_file = File.new("provisioning/roles/ingress/files/tls/server.crt", "wb")
+      ingress_cert_file = File.new("provisioning/roles/example/files/tls/server.crt", "wb")
       ingress_cert_file.syswrite(ingress_cert.to_pem)
       ingress_cert_file.close
       # END INGRESS

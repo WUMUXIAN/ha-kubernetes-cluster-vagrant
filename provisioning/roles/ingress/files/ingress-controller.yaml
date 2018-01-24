@@ -5,7 +5,7 @@ kind: Service
 metadata:
   # keep it under 24 chars
   name: tds-lb
-  namespace: tds-cloud
+  namespace: kube-system
   labels:
     k8s-app: tds-lb
     component: ingress-controller
@@ -26,28 +26,11 @@ spec:
 
 ---
 
----
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: tds-cloud:default
-subjects:
-  - kind: ServiceAccount
-    name: default
-    namespace: tds-cloud
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
-
----
-
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: tds-ingress-controller
-  namespace: tds-cloud
+  namespace: kube-system
   labels:
     k8s-app: tds-lb
     component: ingress-controller

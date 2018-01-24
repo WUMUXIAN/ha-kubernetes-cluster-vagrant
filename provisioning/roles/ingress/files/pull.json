@@ -3,7 +3,7 @@
   "kind": "Secret",
   "type": "kubernetes.io/dockerconfigjson",
   "metadata": {
-    "namespace": "tds-cloud",
+    "namespace": "kube-system",
     "name": "coreos-pull-secret"
   },
   "data": {
