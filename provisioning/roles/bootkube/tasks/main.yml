@@ -79,6 +79,8 @@
     - heapster.yaml
     - kube-dashboard.yaml
     - namespace.yaml
+    - default-backend.yaml
+    - ingress-controller.yaml
 
 - name: Copy over the bootkube.sh
   run_once: true

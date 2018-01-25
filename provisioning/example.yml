@@ -1,0 +1,11 @@
+
+###########################
+# Create example services #
+###########################
+
+- name: nginx examples
+  hosts: master03
+  become: true
+  gather_facts: True
+  roles:
+    - example
