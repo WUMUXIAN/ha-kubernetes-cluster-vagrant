@@ -373,6 +373,8 @@ Vagrant.configure("2") do |config|
     config.vm.define worker_name do |worker|
       worker.vm.hostname = worker_name
       worker.vm.provider :virtualbox do |vb|
+        # This is to enable host VPN for VMs
+        vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.memory = $vm_memory
         worker.ignition.enabled = true
       end
@@ -411,6 +413,8 @@ Vagrant.configure("2") do |config|
     config.vm.define master_name, primary: last do |master|
       master.vm.hostname = master_name
       master.vm.provider :virtualbox do |vb|
+        # This is to enable host VPN for VMs
+        vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.memory = $vm_memory
         master.ignition.enabled = true
       end
