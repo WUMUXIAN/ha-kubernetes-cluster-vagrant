@@ -410,12 +410,14 @@ Vagrant.configure("2") do |config|
     master_ip = $master_ip_start + "#{m}"
     last = (m >= MASTER_COUNT)
 
+
     config.vm.define master_name, primary: last do |master|
       master.vm.hostname = master_name
       master.vm.provider :virtualbox do |vb|
         # This is to enable host VPN for VMs
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.memory = $vm_memory
+
         master.ignition.enabled = true
       end
 
@@ -457,6 +459,16 @@ Vagrant.configure("2") do |config|
 
         config.vm.provision :file, :source => "provisioning/startup.sh", :destination => "/tmp/startup.sh"
         config.vm.provision :shell, :inline => "chmod +x /tmp/startup.sh && /tmp/startup.sh && rm /tmp/startup.sh", :privileged => true
+
+        config.vm.provision :ansible do |ansible|
+          ansible.groups = {
+            "role=master": masters,
+          }
+          ansible.host_vars = hostvars
+          # this will force the provision to happen on all machines to achieve parallel provisioning.
+          ansible.limit = "all"
+          ansible.playbook = "provisioning/example.yml"
+        end
       end
     end
   end
