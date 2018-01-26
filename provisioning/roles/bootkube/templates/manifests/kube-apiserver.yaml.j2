@@ -23,6 +23,11 @@ spec:
       containers:
       - name: kube-apiserver
         image: quay.io/coreos/hyperkube:v1.7.5_coreos.1
+        env:
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
         command:
         - /usr/bin/flock
         - /var/lock/api-server.lock
@@ -31,7 +36,8 @@ spec:
         - --bind-address=0.0.0.0
         - --secure-port=443
         - --insecure-port=0
-        - --advertise-address={{ hostvars[inventory_hostname]['private_ipv4'] }}
+        - --advertise-address=$(HOST_IP)
+        - --apiserver-count=3
         - --etcd-servers={% for host in groups['role=master'] %}https://{{ hostvars[host]['private_ipv4'] }}:2379{% if not loop.last %},{% endif %}{% endfor %}
 
         - --etcd-cafile=/etc/kubernetes/secrets/etcd-client-ca.crt
